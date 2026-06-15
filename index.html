@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnoWise · Nivología Andina</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1D9E75;--green-dark:#0F6E56;--green-light:#E1F5EE;--green-text:#085041;
+  --orange:#EF9F27;--orange-light:#FAEEDA;--orange-text:#633806;
+  --red:#E24B4A;--red-light:#FCEBEB;--red-text:#501313;
+  --bg:#ffffff;--bg2:#F7F7F5;--bg3:#EFEFEC;
+  --border:#E5E4DF;--border2:#D5D4CE;
+  --text:#1A1916;--text2:#6B6A65;--text3:#A8A79F;
+  --radius:8px;--radius-lg:12px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1C1B18;--bg2:#242320;--bg3:#2E2D29;
+    --border:#3A3935;--border2:#4A4945;
+    --text:#F0EFE9;--text2:#9A9990;--text3:#6A6960;
+  }
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+/* LAYOUT */
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:.5px solid var(--border);background:var(--bg)}
+.logo{font-size:17px;font-weight:500;letter-spacing:-.5px}
+.logo span{color:var(--green)}
+.badge{font-size:10px;background:var(--green-light);color:var(--green-text);padding:2px 8px;border-radius:20px;font-weight:500}
+.tabs{display:flex;gap:0;border-bottom:.5px solid var(--border);background:var(--bg);overflow-x:auto}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;white-space:nowrap}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.content{flex:1;padding:16px;max-width:600px;margin:0 auto;width:100%}
+/* FORMS */
+.sl{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 6px}
+.sl:first-child{margin-top:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.fu{grid-column:1/-1}
+.f{display:flex;flex-direction:column;gap:3px}
+.f label{font-size:12px;color:var(--text2)}
+.f input,.f select,.f textarea{font-size:14px;padding:9px 10px;border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:100%;outline:none}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--green)}
+.f textarea{resize:vertical;min-height:80px}
+/* LAYERS */
+.lhdr{display:grid;grid-template-columns:28px 54px 54px 1fr 60px 54px 32px;gap:5px;padding:0 8px 4px;font-size:9px;color:var(--text3);text-transform:uppercase}
+.lrow{display:grid;grid-template-columns:28px 54px 54px 1fr 60px 54px 32px;gap:5px;align-items:center;padding:7px 8px;border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:5px;background:var(--bg)}
+.lrow:hover{border-color:var(--border2)}
+.lrow input,.lrow select{font-size:13px;padding:6px 7px;border:.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);width:100%;min-width:0;outline:none}
+.lrow input:focus,.lrow select:focus{border-color:var(--green)}
+.lnum{font-size:11px;font-weight:600;color:var(--text2);text-align:center}
+.bdel{background:none;border:none;cursor:pointer;color:var(--text3);font-size:15px;padding:0;display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px}
+.bdel:hover{color:var(--red);background:var(--red-light)}
+/* BUTTONS */
+.badd{width:100%;margin-top:4px;padding:10px;border:.5px dashed var(--border2);border-radius:var(--radius);background:none;color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.badd:hover{background:var(--bg2)}
+.bp{width:100%;margin-top:12px;padding:12px;border:none;border-radius:var(--radius);background:var(--green);color:#fff;font-size:14px;font-weight:500;cursor:pointer}
+.bp:hover{background:var(--green-dark)}
+.bs{width:100%;margin-top:8px;padding:10px;border:.5px solid var(--border);border-radius:var(--radius);background:none;color:var(--text);font-size:13px;cursor:pointer}
+.bs:hover{background:var(--bg2)}
+/* OUTPUT HEADER */
+.ph{border:.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;font-size:11px}
+.pr{display:grid;border-bottom:.5px solid var(--border)}
+.pr:last-child{border-bottom:none}
+.r2{grid-template-columns:2fr 1fr 1fr}
+.r3{grid-template-columns:1fr 1fr 1fr}
+.r4{grid-template-columns:1fr 1fr 1fr 1fr}
+.pc{padding:5px 10px;border-right:.5px solid var(--border);color:var(--text)}
+.pc:last-child{border-right:none}
+.pl{font-size:9px;color:var(--text2);display:block;margin-bottom:1px}
+.pv{font-weight:500;font-size:12px}
+.stb{display:flex;align-items:center;justify-content:space-between;padding:5px 10px}
+/* GRADIENT TABLE */
+.gt{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.gt th{font-size:9px;color:var(--text2);font-weight:500;padding:4px 6px;border-bottom:.5px solid var(--border);text-align:left;background:var(--bg2)}
+.gt td{padding:5px 6px;border-bottom:.5px solid var(--border);vertical-align:middle;color:var(--text)}
+.pb{display:inline-block;font-size:9px;font-weight:500;padding:2px 8px;border-radius:10px}
+.bajo{background:var(--green-light);color:var(--green-text)}
+.medio{background:var(--orange-light);color:var(--orange-text)}
+.alto{background:var(--red-light);color:var(--red-text)}
+/* SVG */
+svg.sp{display:block;width:100%;border:.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px}
+/* ANALYSIS */
+.abox{background:var(--bg2);border-radius:var(--radius);padding:10px 12px;font-size:12px;line-height:1.7;color:var(--text);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <div class="logo">SnoWise</div>
+  <span class="badge">open source</span>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span id="user-label" style="font-size:11px;color:var(--text2)"></span>
+    <button id="auth-btn" onclick="handleAuth()" style="font-size:12px;padding:4px 12px;border:.5px solid var(--border);border-radius:20px;background:none;color:var(--text2);cursor:pointer">Connexion</button>
+  </span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="st('input')">Saisie</button>
+  <button class="tab" onclick="st('output')">Perfil + Gradiente</button>
+  <button class="tab" onclick="st('history')">Historial</button>
+</div>
+
+<div class="content">
+
+<!-- ===== SAISIE ===== -->
+<div id="tab-input">
+  <div class="sl">Datos generales</div>
+  <div class="g2">
+    <div class="f"><label>Observador</label><input id="i-obs" value="Philippe"></div>
+    <div class="f"><label>Fecha / hora</label><input type="datetime-local" id="i-date"></div>
+    <div class="f fu"><label>Lugar</label><input id="i-loc" value="Roca Grande Descenso BN"></div>
+    <div class="f"><label>Altitud (m)</label><input type="number" id="i-alt" value="3595"></div>
+    <div class="f"><label>Exposición</label>
+      <select id="i-asp"><option>N</option><option>NE</option><option>E</option><option selected>SE</option><option>S</option><option>SO</option><option>O</option><option>NO</option></select>
+    </div>
+    <div class="f"><label>Inclinación (°)</label><input type="number" id="i-slope" value="35" min="0" max="90"></div>
+    <div class="f"><label>T° aire (°C)</label><input type="number" id="i-tair" value="-1.5" step="0.1"></div>
+    <div class="f"><label>HS — Manto (cm)</label><input type="number" id="i-hs" value="166"></div>
+    <div class="f"><label>Tipo perfil</label>
+      <select id="i-type"><option>Full</option><option>Test</option><option>Fracture Line</option><option>Other</option></select>
+    </div>
+    <div class="f"><label>Estabilidad</label>
+      <select id="i-stab"><option>Good</option><option>Fair</option><option>Poor</option></select>
+    </div>
+  </div>
+
+  <div class="sl">Capas — superficie → suelo</div>
+  <div class="lhdr">
+    <span>#</span><span>Sup cm</span><span>Inf cm</span><span>Grano</span><span>Dureza</span><span>T° °C</span><span></span>
+  </div>
+  <div id="lc"></div>
+  <button class="badd" onclick="addL()">+ Agregar capa</button>
+
+  <div class="sl">Análisis</div>
+  <div class="f">
+    <textarea id="i-analysis" placeholder="Descripción de las condiciones, observaciones, recomendaciones...">Conjunto bastante estable. Metamorfosis en capa 140/110 hacia granos finos (gradiente bajo). Gradiente medio en capas de caras planas — vigilar T°. Capa DH (0–10 cm) hundida, sin peligro mayor. Punto de resistencia a 97 cm — posible plano de deslizamiento futuro.</textarea>
+  </div>
+
+  <button class="bp" onclick="generate()">▶ Generar perfil + calcular gradientes</button>
+</div>
+
+<!-- ===== OUTPUT ===== -->
+<div id="tab-output" style="display:none">
+  <div id="out-header"></div>
+  <div id="out-svg-wrap"></div>
+  <div id="out-gradient"></div>
+  <div id="out-analysis"></div>
+  <button class="bs" onclick="st('input')" style="margin-top:12px">← Volver a saisie</button>
+  <button class="bp" id="btn-save" onclick="saveProfile()" style="margin-top:8px">☁ Guardar en Supabase</button>
+</div>
+
+<!-- ===== HISTORIAL ===== -->
+<div id="tab-history" style="display:none">
+  <div class="sl">Perfiles guardados</div>
+  <div id="history-list" style="color:var(--text2);font-size:13px">Cargando...</div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+const GRAINS=[
+  {code:'PP',label:'PP — Nieve fresca'},{code:'DF',label:'DF — Part. descompuestas'},
+  {code:'RG',label:'RG — Grano redondeado'},{code:'FC',label:'FC — Cara plana'},
+  {code:'DH',label:'DH — Cubilete'},{code:'MF',label:'MF — Grano húmedo'},
+  {code:'SH',label:'SH — Escarcha'},{code:'IF',label:'IF — Hielo'},{code:'CR',label:'CR — Costra'},
+];
+const HARD=['F','F+','4F-','4F','4F+','1F-','1F','1F+','P-','P','P+','K-','K','K+','I-','I','N/A'];
+const HARD_VAL={'F':1,'F+':1.5,'4F-':2,'4F':2.5,'4F+':3,'1F-':3.5,'1F':4,'1F+':4.5,'P-':5,'P':5.5,'P+':6,'K-':6.5,'K':7,'K+':7.5,'I-':8,'I':9,'N/A':0};
+const META={
+  PP:{bajo:'Fragmentación normal',medio:'Fragmentación acelerada',alto:'Fragmentación + inicio FC'},
+  DF:{bajo:'Redondeo normal',medio:'Redondeo moderado',alto:'Posible inicio FC'},
+  RG:{bajo:'Estable',medio:'Leve facetación',alto:'Evolución a FC probable'},
+  FC:{bajo:'Estable',medio:'Crecimiento lento',alto:'Crecimiento activo → DH'},
+  DH:{bajo:'Estable',medio:'Crecimiento moderado',alto:'Crecimiento activo — PELIGRO'},
+  SH:{bajo:'Estable',medio:'Sin cambio',alto:'Sin cambio'},
+  MF:{bajo:'Posible regelación',medio:'Regelación',alto:'Regelación'},
+  IF:{bajo:'Estable',medio:'Estable',alto:'Estable'},
+  CR:{bajo:'Estable',medio:'Estable',alto:'Estable'},
+  default:{bajo:'Sin cambio significativo',medio:'Monitorear',alto:'Metamorfosis activa posible'},
+};
+
+let lCount=0;
+
+function st(id){
+  ['input','output'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===id?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===(id==='input'?0:1));
+  });
+  if(id==='output') window.scrollTo(0,0);
+}
+
+function addL(sup='',inf='',grain='',hard='',temp=''){
+  lCount++;
+  const c=document.getElementById('lc');
+  const d=document.createElement('div');
+  d.className='lrow'; d.id=`l${lCount}`;
+  const go=GRAINS.map(g=>`<option value="${g.code}"${g.code===grain?' selected':''}>${g.label}</option>`).join('');
+  const ho=HARD.map(h=>`<option${h===hard?' selected':''}>${h}</option>`).join('');
+  d.innerHTML=`
+    <span class="lnum">${lCount}</span>
+    <input type="number" class="ls" value="${sup}" placeholder="180" min="0" max="600">
+    <input type="number" class="li" value="${inf}" placeholder="0" min="0" max="600">
+    <select class="lg"><option value="">—</option>${go}</select>
+    <select class="lh2"><option value="">—</option>${ho}</select>
+    <input type="number" class="lt" value="${temp}" placeholder="-4" step="0.1" max="0">
+    <button class="bdel" onclick="document.getElementById('l${lCount}').remove()" title="Eliminar">✕</button>
+  `;
+  c.appendChild(d);
+}
+
+function getLayers(){
+  return Array.from(document.querySelectorAll('.lrow')).map(c=>({
+    sup:parseFloat(c.querySelector('.ls').value)||0,
+    inf:parseFloat(c.querySelector('.li').value)||0,
+    grain:c.querySelector('.lg').value||'',
+    hard:c.querySelector('.lh2').value||'',
+    temp:c.querySelector('.lt').value!==''?parseFloat(c.querySelector('.lt').value):null,
+  })).filter(l=>l.sup>l.inf);
+}
+
+function classify(g){return g<0.05?'bajo':g<=0.20?'medio':'alto';}
+function hardW(code,max=140){const v=HARD_VAL[code]||0;return v===0?4:Math.round((v/9)*max);}
+
+function grainSVG(code,cx,cy){
+  const s=`stroke="#1A1916" stroke-width="1.3"`;
+  const f=`fill="#1A1916"`;
+  switch(code){
+    case'PP':return`<line x1="${cx}" y1="${cy-5}" x2="${cx}" y2="${cy+5}" ${s}/><line x1="${cx-4}" y1="${cy-2.5}" x2="${cx+4}" y2="${cy+2.5}" ${s}/><line x1="${cx+4}" y1="${cy-2.5}" x2="${cx-4}" y2="${cy+2.5}" ${s}/>`;
+    case'DF':return`<line x1="${cx-4}" y1="${cy+4}" x2="${cx-1}" y2="${cy-4}" ${s}/><line x1="${cx+1}" y1="${cy+4}" x2="${cx+4}" y2="${cy-4}" ${s}/>`;
+    case'RG':return`<circle cx="${cx}" cy="${cy}" r="5" ${f}/>`;
+    case'FC':return`<rect x="${cx-5}" y="${cy-5}" width="10" height="10" fill="none" ${s}/>`;
+    case'DH':return`<polygon points="${cx},${cy+5} ${cx-5},${cy-4} ${cx+5},${cy-4}" fill="none" ${s}/>`;
+    case'SH':return`<polygon points="${cx},${cy-5} ${cx-5},${cy+4} ${cx+5},${cy+4}" fill="none" ${s}/>`;
+    case'MF':return`<circle cx="${cx}" cy="${cy}" r="5" fill="none" ${s} stroke-dasharray="2,1"/>`;
+    case'IF':return`<rect x="${cx-6}" y="${cy-3}" width="12" height="6" ${f}/>`;
+    case'CR':return`<rect x="${cx-6}" y="${cy-3}" width="12" height="6" fill="none" ${s} stroke-dasharray="3,1"/>`;
+    default:return`<circle cx="${cx}" cy="${cy}" r="3" fill="none" ${s}/>`;
+  }
+}
+
+function generate(){
+  const layers=getLayers().sort((a,b)=>a.inf-b.inf);
+  if(layers.length<2){alert('Al menos 2 capas.');return;}
+  const obs=document.getElementById('i-obs').value;
+  const loc=document.getElementById('i-loc').value;
+  const date=document.getElementById('i-date').value;
+  const alt=document.getElementById('i-alt').value;
+  const asp=document.getElementById('i-asp').value;
+  const slope=document.getElementById('i-slope').value;
+  const tair=parseFloat(document.getElementById('i-tair').value)||0;
+  const hs=parseInt(document.getElementById('i-hs').value)||160;
+  const stab=document.getElementById('i-stab').value;
+  const analysis=document.getElementById('i-analysis').value;
+  const stabCol={Good:'#E1F5EE',Fair:'#FAEEDA',Poor:'#FCEBEB'}[stab]||'#eee';
+  const stabTxt={Good:'#085041',Fair:'#633806',Poor:'#501313'}[stab]||'#333';
+
+  // Header
+  document.getElementById('out-header').innerHTML=`
+  <div class="ph">
+    <div class="pr r2">
+      <div class="pc"><span class="pl">Lugar</span><span class="pv">${loc}</span></div>
+      <div class="pc"><span class="pl">Fecha</span><span class="pv">${date}</span></div>
+      <div class="pc"><span class="pl">Obs.</span><span class="pv">${obs}</span></div>
+    </div>
+    <div class="pr r4">
+      <div class="pc"><span class="pl">Altitud</span><span class="pv">${alt} m</span></div>
+      <div class="pc"><span class="pl">Exp.</span><span class="pv">${asp}</span></div>
+      <div class="pc"><span class="pl">Pend.</span><span class="pv">${slope}°</span></div>
+      <div class="pc"><span class="pl">T° aire</span><span class="pv">${tair}°C</span></div>
+    </div>
+    <div class="stb"><span style="font-size:11px;color:var(--text2)">Estabilidad</span>
+      <span style="font-size:10px;font-weight:500;padding:2px 12px;border-radius:20px;background:${stabCol};color:${stabTxt}">${stab}</span>
+    </div>
+  </div>`;
+
+  // SVG
+  const maxH=Math.max(hs+15,...layers.map(l=>l.sup))+10;
+  const SH=Math.max(340,maxH*2.0+80);
+  const hY=h=>SH-50-h*(SH-90)/maxH;
+  const temps=layers.filter(l=>l.temp!==null).map(l=>l.temp);
+  temps.push(tair);
+  const tMin=Math.floor(Math.min(...temps))-1;
+  const tMax=Math.ceil(Math.max(...temps))+1;
+  const tX=t=>4+(t-tMin)/(tMax-tMin)*148;
+  const gradC={bajo:'#1D9E75',medio:'#EF9F27',alto:'#E24B4A'};
+  const gFill={RG:'#5DCAA5',FC:'#6BA3E0',DH:'#E24B4A',PP:'#A8CAEF',DF:'#9FE1CB',SH:'#FAC775',MF:'#A8CAEF',IF:'#999',CR:'#999'};
+
+  let svg=`<svg viewBox="0 0 380 ${SH}" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;border:.5px solid #E5E4DF;border-radius:12px;margin-bottom:8px">`;
+  svg+=`<rect width="380" height="${SH}" fill="white"/>`;
+  svg+=`<line x1="0" y1="${SH-50}" x2="380" y2="${SH-50}" stroke="#1A1916" stroke-width="1.2"/>`;
+  svg+=`<text x="158" y="${SH-32}" font-size="8" text-anchor="middle" fill="#6B6A65">suelo</text>`;
+  svg+=`<line x1="158" y1="26" x2="158" y2="${SH-50}" stroke="#1A1916" stroke-width="0.8"/>`;
+
+  for(let h=0;h<=maxH;h+=10){
+    const y=hY(h);
+    svg+=`<line x1="155" y1="${y}" x2="161" y2="${y}" stroke="#A8A79F" stroke-width="0.5"/>`;
+    svg+=`<text x="153" y="${y+3}" font-size="7" text-anchor="end" fill="#6B6A65">${h}</text>`;
+    svg+=`<line x1="0" y1="${y}" x2="380" y2="${y}" stroke="#E5E4DF" stroke-width="0.2" stroke-dasharray="1,3"/>`;
+  }
+
+  // Header hardness
+  svg+=`<rect width="158" height="24" fill="#F7F7F5"/>`;
+  svg+=`<line x1="0" y1="24" x2="158" y2="24" stroke="#E5E4DF" stroke-width="0.5"/>`;
+  ['F','4F','1F','P','K'].forEach((l,i)=>{
+    const xs=[6,30,62,96,128];
+    svg+=`<text x="${xs[i]}" y="17" font-size="8" fill="#6B6A65">${l}</text>`;
+  });
+
+  // Header colonnes droite
+  svg+=`<rect x="160" width="220" height="24" fill="#F7F7F5"/>`;
+  svg+=`<line x1="160" y1="24" x2="380" y2="24" stroke="#E5E4DF" stroke-width="0.5"/>`;
+  [160,180,214,228,244,260].forEach(x=>{
+    svg+=`<line x1="${x}" y1="24" x2="${x}" y2="${SH-50}" stroke="#E5E4DF" stroke-width="0.3"/>`;
+  });
+  svg+=`<text x="163" y="17" font-size="8" fill="#6B6A65" font-weight="500">H</text>`;
+  svg+=`<text x="182" y="17" font-size="8" fill="#6B6A65" font-weight="500">θ°C</text>`;
+  svg+=`<text x="215" y="17" font-size="8" fill="#6B6A65" font-weight="500">F</text>`;
+  svg+=`<text x="229" y="17" font-size="8" fill="#6B6A65" font-weight="500">E</text>`;
+  svg+=`<text x="245" y="17" font-size="8" fill="#6B6A65" font-weight="500">R</text>`;
+  svg+=`<text x="261" y="17" font-size="8" fill="#6B6A65" font-weight="500">Comments</text>`;
+
+  // Surface
+  const ySurf=hY(hs);
+  svg+=`<line x1="0" y1="${ySurf}" x2="158" y2="${ySurf}" stroke="#6B6A65" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+  svg+=`<text x="2" y="${ySurf-4}" font-size="7" fill="#6B6A65">superficie</text>`;
+
+  // Couches
+  layers.forEach(l=>{
+    const yT=hY(l.sup),yB=hY(l.inf),yM=(yT+yB)/2,lH=Math.max(yB-yT,2);
+    const hw=hardW(l.hard);
+    const fc=gFill[l.grain]||'#6BA3E0';
+    svg+=`<rect x="${158-hw}" y="${yT}" width="${hw}" height="${lH}" fill="${fc}" opacity="0.4"/>`;
+    svg+=`<line x1="${158-Math.max(hw,8)}" y1="${yT}" x2="158" y2="${yT}" stroke="#A8A79F" stroke-width="0.8" stroke-dasharray="2,1"/>`;
+    svg+=`<line x1="160" y1="${yT}" x2="380" y2="${yT}" stroke="#E5E4DF" stroke-width="0.3" stroke-dasharray="1,2"/>`;
+    svg+=`<text x="163" y="${yM+3}" font-size="8" fill="#1A1916">${l.sup}</text>`;
+    if(l.temp!==null) svg+=`<text x="182" y="${yM+3}" font-size="8" fill="#1A1916">${l.temp}</text>`;
+    svg+=grainSVG(l.grain,221,yM);
+  });
+
+  // Bande gradient
+  for(let i=0;i<layers.length-1;i++){
+    const l0=layers[i],l1=layers[i+1];
+    if(l0.temp===null||l1.temp===null) continue;
+    const dist=l0.sup-l0.inf; if(dist<=0) continue;
+    const g=Math.abs(l1.temp-l0.temp)/dist;
+    svg+=`<rect x="158" y="${hY(l0.sup)}" width="3" height="${Math.max(hY(l0.inf)-hY(l0.sup),2)}" fill="${gradC[classify(g)]}" opacity="0.95"/>`;
+  }
+
+  // Courbe T°
+  const tPts=layers.filter(l=>l.temp!==null).map(l=>({y:hY((l.sup+l.inf)/2),x:tX(l.temp)}));
+  if(tPts.length>1){
+    const yAir=hY(hs+14),xAir=tX(tair);
+    const lastP=tPts[tPts.length-1];
+    svg+=`<line x1="${lastP.x}" y1="${hY(hs)}" x2="${xAir}" y2="${yAir}" stroke="#EF9F27" stroke-width="1.2" stroke-dasharray="3,2"/>`;
+    svg+=`<circle cx="${xAir}" cy="${yAir}" r="3" fill="#EF9F27"/>`;
+    svg+=`<text x="${xAir+5}" y="${yAir-2}" font-size="7" fill="#EF9F27">${tair}° aire</text>`;
+    svg+=`<polyline points="${[...tPts].reverse().map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#EF9F27" stroke-width="2" stroke-linejoin="round"/>`;
+    tPts.forEach(p=>svg+=`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="#EF9F27"/>`);
+  }
+
+  // Axe T°
+  for(let t=tMin;t<=tMax;t++){
+    const x=tX(t);
+    svg+=`<line x1="${x}" y1="${SH-50}" x2="${x}" y2="${SH-46}" stroke="#A8A79F" stroke-width="0.5"/>`;
+    svg+=`<text x="${x}" y="${SH-33}" font-size="7" text-anchor="middle" fill="#A8A79F">${t}°</text>`;
+  }
+
+  // Légende
+  svg+=`<circle cx="5" cy="${SH-12}" r="3" fill="#EF9F27"/>`;
+  svg+=`<text x="11" y="${SH-8}" font-size="7" fill="#A8A79F">T°</text>`;
+  svg+=`<rect x="28" y="${SH-17}" width="6" height="6" fill="#1D9E75"/>`;
+  svg+=`<text x="36" y="${SH-8}" font-size="7" fill="#A8A79F">Bajo &lt;0.05</text>`;
+  svg+=`<rect x="90" y="${SH-17}" width="6" height="6" fill="#EF9F27"/>`;
+  svg+=`<text x="98" y="${SH-8}" font-size="7" fill="#A8A79F">Medio 0.05–0.20</text>`;
+  svg+=`<rect x="165" y="${SH-17}" width="6" height="6" fill="#E24B4A"/>`;
+  svg+=`<text x="173" y="${SH-8}" font-size="7" fill="#A8A79F">Alto &gt;0.20</text>`;
+  svg+=`</svg>`;
+  document.getElementById('out-svg-wrap').innerHTML=svg;
+
+  // Tableau gradient
+  let gt=`<div class="sl">Gradiente de temperatura — análisis automático</div>`;
+  gt+=`<table class="gt"><thead><tr><th>Capa cm</th><th>Grano</th><th>T1→T0</th><th>Dist</th><th>Grad °C/cm</th><th>Clase</th><th>Metamorfosis</th></tr></thead><tbody>`;
+  let ok=false;
+  for(let i=layers.length-1;i>0;i--){
+    const l0=layers[i-1],l1=layers[i];
+    if(l0.temp===null||l1.temp===null) continue;
+    const dist=l0.sup-l0.inf; if(dist<=0) continue;
+    const g=Math.abs(l1.temp-l0.temp)/dist,cls=classify(g);
+    const gk=l0.grain&&META[l0.grain]?l0.grain:'default';
+    gt+=`<tr><td>${l0.inf}–${l0.sup}</td><td style="font-weight:600">${l0.grain||'—'}</td><td>${l1.temp}→${l0.temp}</td><td>${dist} cm</td><td style="font-weight:600">${g.toFixed(4)}</td><td><span class="pb ${cls}">${cls.toUpperCase()}</span></td><td style="font-size:10px">${META[gk][cls]}</td></tr>`;
+    ok=true;
+  }
+  if(!ok) gt+=`<tr><td colspan="7" style="color:var(--text3);padding:8px">Completa las temperaturas para calcular.</td></tr>`;
+  gt+=`</tbody></table>`;
+  document.getElementById('out-gradient').innerHTML=gt;
+  document.getElementById('out-analysis').innerHTML=analysis?`<div class="abox">${analysis}</div>`:'';
+  st('output');
+}
+
+// Init
+const now=new Date();
+now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+document.getElementById('i-date').value=now.toISOString().slice(0,16);
+addL(166,160,'PP','F','-8.9');
+addL(160,145,'DF','F','-9.1');
+addL(145,140,'FC','F','-9.0');
+addL(140,110,'RG','F','-7.7');
+addL(110,100,'FC','F','-7.2');
+addL(100,60,'FC','F','-4.3');
+addL(60,10,'FC','F','-3.9');
+addL(10,0,'DH','1F','-1.7');
+
+// ===== SUPABASE =====
+const SUPA_URL='https://wlutcuxxxqubjkocwgcb.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsdXRjdXh4eHF1Ymprb2N3Z2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTE1NTYsImV4cCI6MjA5NzEyNzU1Nn0.S7Bb_LXonFB-hnKbucBJQrDoeFiVNqLY_Vv9Kq3eJm4';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+let currentUser=null;
+let lastProfileId=null;
+
+// Auth state
+sb.auth.onAuthStateChange((event,session)=>{
+  currentUser=session?.user||null;
+  const label=document.getElementById('user-label');
+  const btn=document.getElementById('auth-btn');
+  if(currentUser){
+    label.textContent=currentUser.email;
+    btn.textContent='Salir';
+  } else {
+    label.textContent='';
+    btn.textContent='Connexion';
+  }
+});
+
+async function handleAuth(){
+  if(currentUser){
+    await sb.auth.signOut();
+  } else {
+    const email=prompt('Email:');
+    if(!email) return;
+    const pwd=prompt('Contraseña:');
+    if(!pwd) return;
+    const {error}=await sb.auth.signInWithPassword({email,password:pwd});
+    if(error){
+      // Tentative création compte
+      const {error:e2}=await sb.auth.signUp({email,password:pwd});
+      if(e2) alert('Error: '+e2.message);
+      else alert('Cuenta creada — revisa tu email para confirmar.');
+    }
+  }
+}
+
+async function saveProfile(){
+  if(!currentUser){alert('Inicia sesión primero.');return;}
+  const layers=getLayers().sort((a,b)=>a.inf-b.inf);
+  if(layers.length<1){alert('Sin capas para guardar.');return;}
+
+  const btn=document.getElementById('btn-save');
+  btn.textContent='Guardando...';btn.disabled=true;
+
+  try {
+    // 1. Guardar perfil
+    const {data:prof,error:e1}=await sb.from('snow_profiles').insert({
+      created_by: currentUser.id,
+      observer: document.getElementById('i-obs').value,
+      recorded_at: document.getElementById('i-date').value,
+      location_label: document.getElementById('i-loc').value,
+      altitude_m: parseInt(document.getElementById('i-alt').value)||null,
+      aspect: document.getElementById('i-asp').value,
+      slope_deg: parseInt(document.getElementById('i-slope').value)||null,
+      air_temp_c: parseFloat(document.getElementById('i-tair').value)||null,
+      hs_cm: parseInt(document.getElementById('i-hs').value)||null,
+      profile_type: document.getElementById('i-type').value,
+      stability: document.getElementById('i-stab').value,
+      analysis_text: document.getElementById('i-analysis').value,
+      entry_direction: 'surface_down',
+    }).select().single();
+    if(e1) throw e1;
+    lastProfileId=prof.id;
+
+    // 2. Guardar capas
+    const layerRows=layers.map((l,i)=>({
+      profile_id: prof.id,
+      layer_order: i+1,
+      height_top_cm: l.sup,
+      height_bot_cm: l.inf,
+      grain_family: ['PP','DF','RG','FC','DH','MF','SH','IF','CR'].indexOf(l.grain)+1||null,
+      hardness: l.hard||null,
+      temp_c: l.temp,
+    }));
+    const {error:e2}=await sb.from('snow_layers').insert(layerRows);
+    if(e2) throw e2;
+
+    // 3. Guardar gradientes calculados
+    const gradRows=[];
+    for(let i=layers.length-1;i>0;i--){
+      const l0=layers[i-1],l1=layers[i];
+      if(l0.temp===null||l1.temp===null) continue;
+      const dist=l0.sup-l0.inf; if(dist<=0) continue;
+      const g=Math.abs(l1.temp-l0.temp)/dist;
+      const cls=classify(g);
+      const gk=l0.grain&&META[l0.grain]?l0.grain:'default';
+      gradRows.push({
+        profile_id: prof.id,
+        layer_top_cm: l0.sup,
+        layer_bot_cm: l0.inf,
+        temp_top_c: l1.temp,
+        temp_bot_c: l0.temp,
+        distance_cm: dist,
+        gradient_c_per_cm: parseFloat(g.toFixed(4)),
+        gradient_class: cls,
+        metamorphosis_risk: META[gk][cls],
+      });
+    }
+    if(gradRows.length>0){
+      const {error:e3}=await sb.from('gradient_results').insert(gradRows);
+      if(e3) throw e3;
+    }
+
+    btn.textContent='✓ Guardado';
+    btn.style.background='var(--green-dark)';
+    setTimeout(()=>{btn.textContent='☁ Guardar en Supabase';btn.style.background='';btn.disabled=false;},3000);
+
+  } catch(err){
+    console.error(err);
+    alert('Error al guardar: '+err.message);
+    btn.textContent='☁ Guardar en Supabase';btn.disabled=false;
+  }
+}
+
+// Historial
+async function loadHistory(){
+  if(!currentUser){
+    document.getElementById('history-list').innerHTML='<p style="color:var(--text2)">Inicia sesión para ver tus perfiles.</p>';
+    return;
+  }
+  const {data,error}=await sb.from('snow_profiles')
+    .select('id,recorded_at,location_label,altitude_m,aspect,stability,hs_cm')
+    .order('recorded_at',{ascending:false})
+    .limit(20);
+  if(error||!data?.length){
+    document.getElementById('history-list').innerHTML='<p style="color:var(--text2)">Sin perfiles guardados.</p>';
+    return;
+  }
+  const stabCol={Good:'var(--green-light)',Fair:'var(--orange-light)',Poor:'var(--red-light)'};
+  const stabTxt={Good:'var(--green-text)',Fair:'var(--orange-text)',Poor:'var(--red-text)'};
+  document.getElementById('history-list').innerHTML=data.map(p=>`
+    <div style="padding:10px 12px;border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;background:var(--bg)" onclick="loadProfile('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:500;font-size:13px">${p.location_label||'—'}</span>
+        <span style="font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;background:${stabCol[p.stability]||'var(--bg2)'};color:${stabTxt[p.stability]||'var(--text2)'}">${p.stability||'—'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">${p.recorded_at?.slice(0,16)||''} · ${p.altitude_m||''}m · ${p.aspect||''} · HS ${p.hs_cm||''}cm</div>
+    </div>
+  `).join('');
+}
+
+async function loadProfile(id){
+  const {data:prof}=await sb.from('snow_profiles').select('*').eq('id',id).single();
+  const {data:layers}=await sb.from('snow_layers').select('*').eq('profile_id',id).order('height_top_cm',{ascending:false});
+  if(!prof||!layers) return;
+
+  document.getElementById('i-obs').value=prof.observer||'';
+  document.getElementById('i-loc').value=prof.location_label||'';
+  document.getElementById('i-alt').value=prof.altitude_m||'';
+  document.getElementById('i-slope').value=prof.slope_deg||'';
+  document.getElementById('i-tair').value=prof.air_temp_c||'';
+  document.getElementById('i-hs').value=prof.hs_cm||'';
+  document.getElementById('i-stab').value=prof.stability||'Good';
+  document.getElementById('i-analysis').value=prof.analysis_text||'';
+
+  document.getElementById('lc').innerHTML='';
+  lCount=0;
+  const grainCodes=['','PP','DF','RG','FC','DH','MF','SH','IF','CR'];
+  layers.forEach(l=>{
+    addL(l.height_top_cm,l.height_bot_cm,grainCodes[l.grain_family]||'',l.hardness||'',l.temp_c!==null?l.temp_c:'');
+  });
+  st('input');
+}
+
+// Override st pour charger l'historique
+const _st=st;
+window.st=function(id){
+  _st(id);
+  if(id==='history') loadHistory();
+  // 3 onglets
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===['input','output','history'].indexOf(id));
+  });
+};
+</script>
+</body>
+</html>
