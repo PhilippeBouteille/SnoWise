@@ -321,6 +321,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 
 <script>
 // ===== SUPABASE =====
+// Gérer le retour OAuth (hash dans l'URL)
+if(window.location.hash && window.location.hash.includes('access_token')){
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
 const SUPA_URL='https://wlutcuxxxqubjkocwgcb.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsdXRjdXh4eHF1Ymprb2N3Z2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTE1NTYsImV4cCI6MjA5NzEyNzU1Nn0.S7Bb_LXonFB-hnKbucBJQrDoeFiVNqLY_Vv9Kq3eJm4';
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
@@ -371,7 +375,7 @@ function authErr(msg,reg=false){
 }
 
 async function doGoogle(){
-  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}});
+  const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:'https://snowise.vercel.app'}});
   if(error) alert('Error Google: '+error.message);
 }
 async function doLogin(){
