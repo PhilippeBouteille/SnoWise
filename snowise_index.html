@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SnoWise · Nivología Andina</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -93,12 +94,16 @@ svg.sp{display:block;width:100%;border:.5px solid var(--border);border-radius:va
 <div class="topbar">
   <div class="logo">SnoWise</div>
   <span class="badge">open source</span>
-  <span style="margin-left:auto;font-size:11px;color:var(--text2)">v0.1</span>
+  <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <span id="user-label" style="font-size:11px;color:var(--text2)"></span>
+    <button id="auth-btn" onclick="handleAuth()" style="font-size:12px;padding:4px 12px;border:.5px solid var(--border);border-radius:20px;background:none;color:var(--text2);cursor:pointer">Connexion</button>
+  </span>
 </div>
 
 <div class="tabs">
   <button class="tab active" onclick="st('input')">Saisie</button>
   <button class="tab" onclick="st('output')">Perfil + Gradiente</button>
+  <button class="tab" onclick="st('history')">Historial</button>
 </div>
 
 <div class="content">
@@ -147,6 +152,13 @@ svg.sp{display:block;width:100%;border:.5px solid var(--border);border-radius:va
   <div id="out-gradient"></div>
   <div id="out-analysis"></div>
   <button class="bs" onclick="st('input')" style="margin-top:12px">← Volver a saisie</button>
+  <button class="bp" id="btn-save" onclick="saveProfile()" style="margin-top:8px">☁ Guardar en Supabase</button>
+</div>
+
+<!-- ===== HISTORIAL ===== -->
+<div id="tab-history" style="display:none">
+  <div class="sl">Perfiles guardados</div>
+  <div id="history-list" style="color:var(--text2);font-size:13px">Cargando...</div>
 </div>
 
 </div><!-- /content -->
@@ -406,6 +418,185 @@ addL(110,100,'FC','F','-7.2');
 addL(100,60,'FC','F','-4.3');
 addL(60,10,'FC','F','-3.9');
 addL(10,0,'DH','1F','-1.7');
+
+// ===== SUPABASE =====
+const SUPA_URL='https://wlutcuxxxqubjkocwgcb.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsdXRjdXh4eHF1Ymprb2N3Z2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NTE1NTYsImV4cCI6MjA5NzEyNzU1Nn0.S7Bb_LXonFB-hnKbucBJQrDoeFiVNqLY_Vv9Kq3eJm4';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+let currentUser=null;
+let lastProfileId=null;
+
+// Auth state
+sb.auth.onAuthStateChange((event,session)=>{
+  currentUser=session?.user||null;
+  const label=document.getElementById('user-label');
+  const btn=document.getElementById('auth-btn');
+  if(currentUser){
+    label.textContent=currentUser.email;
+    btn.textContent='Salir';
+  } else {
+    label.textContent='';
+    btn.textContent='Connexion';
+  }
+});
+
+async function handleAuth(){
+  if(currentUser){
+    await sb.auth.signOut();
+  } else {
+    const email=prompt('Email:');
+    if(!email) return;
+    const pwd=prompt('Contraseña:');
+    if(!pwd) return;
+    const {error}=await sb.auth.signInWithPassword({email,password:pwd});
+    if(error){
+      // Tentative création compte
+      const {error:e2}=await sb.auth.signUp({email,password:pwd});
+      if(e2) alert('Error: '+e2.message);
+      else alert('Cuenta creada — revisa tu email para confirmar.');
+    }
+  }
+}
+
+async function saveProfile(){
+  if(!currentUser){alert('Inicia sesión primero.');return;}
+  const layers=getLayers().sort((a,b)=>a.inf-b.inf);
+  if(layers.length<1){alert('Sin capas para guardar.');return;}
+
+  const btn=document.getElementById('btn-save');
+  btn.textContent='Guardando...';btn.disabled=true;
+
+  try {
+    // 1. Guardar perfil
+    const {data:prof,error:e1}=await sb.from('snow_profiles').insert({
+      created_by: currentUser.id,
+      observer: document.getElementById('i-obs').value,
+      recorded_at: document.getElementById('i-date').value,
+      location_label: document.getElementById('i-loc').value,
+      altitude_m: parseInt(document.getElementById('i-alt').value)||null,
+      aspect: document.getElementById('i-asp').value,
+      slope_deg: parseInt(document.getElementById('i-slope').value)||null,
+      air_temp_c: parseFloat(document.getElementById('i-tair').value)||null,
+      hs_cm: parseInt(document.getElementById('i-hs').value)||null,
+      profile_type: document.getElementById('i-type').value,
+      stability: document.getElementById('i-stab').value,
+      analysis_text: document.getElementById('i-analysis').value,
+      entry_direction: 'surface_down',
+    }).select().single();
+    if(e1) throw e1;
+    lastProfileId=prof.id;
+
+    // 2. Guardar capas
+    const layerRows=layers.map((l,i)=>({
+      profile_id: prof.id,
+      layer_order: i+1,
+      height_top_cm: l.sup,
+      height_bot_cm: l.inf,
+      grain_family: ['PP','DF','RG','FC','DH','MF','SH','IF','CR'].indexOf(l.grain)+1||null,
+      hardness: l.hard||null,
+      temp_c: l.temp,
+    }));
+    const {error:e2}=await sb.from('snow_layers').insert(layerRows);
+    if(e2) throw e2;
+
+    // 3. Guardar gradientes calculados
+    const gradRows=[];
+    for(let i=layers.length-1;i>0;i--){
+      const l0=layers[i-1],l1=layers[i];
+      if(l0.temp===null||l1.temp===null) continue;
+      const dist=l0.sup-l0.inf; if(dist<=0) continue;
+      const g=Math.abs(l1.temp-l0.temp)/dist;
+      const cls=classify(g);
+      const gk=l0.grain&&META[l0.grain]?l0.grain:'default';
+      gradRows.push({
+        profile_id: prof.id,
+        layer_top_cm: l0.sup,
+        layer_bot_cm: l0.inf,
+        temp_top_c: l1.temp,
+        temp_bot_c: l0.temp,
+        distance_cm: dist,
+        gradient_c_per_cm: parseFloat(g.toFixed(4)),
+        gradient_class: cls,
+        metamorphosis_risk: META[gk][cls],
+      });
+    }
+    if(gradRows.length>0){
+      const {error:e3}=await sb.from('gradient_results').insert(gradRows);
+      if(e3) throw e3;
+    }
+
+    btn.textContent='✓ Guardado';
+    btn.style.background='var(--green-dark)';
+    setTimeout(()=>{btn.textContent='☁ Guardar en Supabase';btn.style.background='';btn.disabled=false;},3000);
+
+  } catch(err){
+    console.error(err);
+    alert('Error al guardar: '+err.message);
+    btn.textContent='☁ Guardar en Supabase';btn.disabled=false;
+  }
+}
+
+// Historial
+async function loadHistory(){
+  if(!currentUser){
+    document.getElementById('history-list').innerHTML='<p style="color:var(--text2)">Inicia sesión para ver tus perfiles.</p>';
+    return;
+  }
+  const {data,error}=await sb.from('snow_profiles')
+    .select('id,recorded_at,location_label,altitude_m,aspect,stability,hs_cm')
+    .order('recorded_at',{ascending:false})
+    .limit(20);
+  if(error||!data?.length){
+    document.getElementById('history-list').innerHTML='<p style="color:var(--text2)">Sin perfiles guardados.</p>';
+    return;
+  }
+  const stabCol={Good:'var(--green-light)',Fair:'var(--orange-light)',Poor:'var(--red-light)'};
+  const stabTxt={Good:'var(--green-text)',Fair:'var(--orange-text)',Poor:'var(--red-text)'};
+  document.getElementById('history-list').innerHTML=data.map(p=>`
+    <div style="padding:10px 12px;border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;background:var(--bg)" onclick="loadProfile('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:500;font-size:13px">${p.location_label||'—'}</span>
+        <span style="font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;background:${stabCol[p.stability]||'var(--bg2)'};color:${stabTxt[p.stability]||'var(--text2)'}">${p.stability||'—'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:3px">${p.recorded_at?.slice(0,16)||''} · ${p.altitude_m||''}m · ${p.aspect||''} · HS ${p.hs_cm||''}cm</div>
+    </div>
+  `).join('');
+}
+
+async function loadProfile(id){
+  const {data:prof}=await sb.from('snow_profiles').select('*').eq('id',id).single();
+  const {data:layers}=await sb.from('snow_layers').select('*').eq('profile_id',id).order('height_top_cm',{ascending:false});
+  if(!prof||!layers) return;
+
+  document.getElementById('i-obs').value=prof.observer||'';
+  document.getElementById('i-loc').value=prof.location_label||'';
+  document.getElementById('i-alt').value=prof.altitude_m||'';
+  document.getElementById('i-slope').value=prof.slope_deg||'';
+  document.getElementById('i-tair').value=prof.air_temp_c||'';
+  document.getElementById('i-hs').value=prof.hs_cm||'';
+  document.getElementById('i-stab').value=prof.stability||'Good';
+  document.getElementById('i-analysis').value=prof.analysis_text||'';
+
+  document.getElementById('lc').innerHTML='';
+  lCount=0;
+  const grainCodes=['','PP','DF','RG','FC','DH','MF','SH','IF','CR'];
+  layers.forEach(l=>{
+    addL(l.height_top_cm,l.height_bot_cm,grainCodes[l.grain_family]||'',l.hardness||'',l.temp_c!==null?l.temp_c:'');
+  });
+  st('input');
+}
+
+// Override st pour charger l'historique
+const _st=st;
+window.st=function(id){
+  _st(id);
+  if(id==='history') loadHistory();
+  // 3 onglets
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===['input','output','history'].indexOf(id));
+  });
+};
 </script>
 </body>
 </html>
